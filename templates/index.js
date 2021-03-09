@@ -1,25 +1,16 @@
+
 function main() {
     /* Loads all the js libraries and project modules, then calls onReady. */
     console.log('main()');
-    head.js();
 
-    // For the first page load we set both tasks to enabled
-    if(!localStorage.getItem('enableBlanks')) {
-        localStorage.setItem('enableBlanks', true);
-        eb = document.getElementById('enableBlanks');
-        eb.setAttribute('checked', true);
+    var enabledTasks = localStorage.getItem('enabledTasks');
+    if(enabledTasks == null) { // optimism that JS returns a null
+        var et = {'blanks': true, 'choice': true, 'scramble': true, 'search':true};
+        localStorage.setItem('enabledTasks', JSON.stringify(et));
     }
-    if(!localStorage.getItem('enableChoice')) {
-        localStorage.setItem('enableChoice', true);
-        eb = document.getElementById('enableChoice');
-        eb.setAttribute('checked', true);
-    }
-    if(!localStorage.getItem('enableScrams')) {
-        localStorage.setItem('enableScrams', true);
-        eb = document.getElementById('enableScrams');
-        eb.setAttribute('checked', true);
-    }
-
+    enabledTasks = JSON.parse(localStorage.getItem('enabledTasks'));
+    console.log('enabledTasks:');
+    console.log(enabledTasks);
 
     // This allows us to capture Enter, Tab, Space etc.
     window.onkeydown = globalKeyDown;
@@ -27,11 +18,17 @@ function main() {
     if(!localStorage.getItem('currentLevel')) {
         localStorage.setItem('currentLevel', 1);
     }
-
-    if(!localStorage.getItem('currentLanguage')) {
+    var foundLang = findGetParameter("language");
+    console.log('foundLang: ' + foundLang);
+    if(!localStorage.getItem('currentLanguage') && foundLang == null) {
         localStorage.setItem('currentLanguage', 'fi');
     }
+    if(foundLang != null) {
+        // FIXME: this should probably check that it is a valid language
+        localStorage.setItem('currentLanguage', foundLang);
+    }
     var lang = localStorage.getItem('currentLanguage');
+    console.log('lang: ' + lang);
     var h = document.documentElement;
     if(lang == "ar" || lang == "fa" || lang == "dv") { // FIXME: be cleverer here
         // <html dir="rtl" lang="ar">
@@ -68,530 +65,99 @@ function main() {
     }
 
 
-    head.ready(onReady);
+    onReady();
 }
-
-function getLanguages() {
-    console.log('onReadyChoice()');
-    languageSelector = document.getElementById('languages');
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/get_languages');
-    xhr.onload = function() {
-        res = JSON.parse(xhr.responseText);
-        languages = res["languages"];
-        for(var i = 0; i < languages.length; i++) {
-            var language = document.createElement("option");
-            var languageText = document.createTextNode(languages[i]);
-            if(localStorage.getItem('currentLanguage') == languages[i]) {
-                language.setAttribute("selected","");
-            }
-            language.setAttribute("value", languages[i]);
-            language.appendChild(languageText);
-            languageSelector.appendChild(language);
-        } 
-    };
-    xhr.send();
-}
-
-
 
 function updateTask(task) {
-    // Update the state of the two check boxes
-    localStorage.setItem(task.id, task.checked);
-}
-
-function getRandomInt(min, max) {
-    // Generate a pseudo-random integer between min and max
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function electGap(current_text) {
-    // Choose which index to gap out
-    do {
-        gapIndex = getRandomInt(0, current_text.length - 1);
-    } while (current_text[gapIndex] == "." || current_text[gapIndex] == ":" || current_text[gapIndex] == "?" || current_text[gapIndex] == "," || current_text[gapIndex] == "!");
-    // Do something better here for any punctuation
-    return gapIndex;
-}
-
-function changeLanguage(elem) {
-   console.log('changeLanguage: ' + elem.value);
-   localStorage.setItem('currentLanguage', elem.value);
-   localStorage.setItem('responses', Array());
-   location.reload(); 
-}
-
-
-function changeLevel(elem) {
-   console.log('changeLevel: ' + elem.value);
-   localStorage.setItem('currentLevel', elem.value);
-   location.reload(); 
-}
-
-function userInputChoice(e, correct, tid) {
-    console.log('userInputChoice:', e);
-    console.log(tid);
-    responses = localStorage.getItem('responses');
-    answer = document.getElementById(tid);
-    other = tid.charAt(0) === 'd' ? document.getElementById(tid.substr(1)) : document.getElementById('d' + tid);
-    if(correct == 1) {
-        console.log('CORRECT!');
-        answer.setAttribute("class", "correct");
-        responses += "+";
-    } else {
-        console.log('INCORRECT!');
-        answer.setAttribute("class", "incorrect");
-        other.setAttribute("class", "correct");
-        responses += "-";
-    }
-    answer.removeAttribute("onClick");
-    other.removeAttribute("onClick");
-    localStorage.setItem('responses', responses);
-    clearFeedback();
-    drawFeedback();
-}
-
-function userInput(e, tid) {
-    console.log('userInput:', e);
-    console.log(tid);
-
-    if(e.key == 'Enter') {
-      checkInput(tid);
-    }
-}
-
-function buildOptionTbox(current_text, gap, distractors) {
-    line = '';
-    console.log('buildOptionTbox()')
-    // FIXME: Caps at beginning of sentence
-    ds = distractors[current_text[gap]];
-    console.log(ds);
-    for (var i = 0; i < current_text.length; i++) {
-        if (i == gap) {
-            if(getRandomInt(0, 1) == 1) {
-                line += `{<span 
-                                onClick="userInputChoice(event, 1, \'t${i}'\)"
-                                id="t${i}"
-                                style="border: thin dotted #000; width: ${current_text[i].length}ch"
-                                data-value="${current_text[i]}">${current_text[i]}</span>, 
-                           <span 
-                                onClick="userInputChoice(event, 0, \'dt${i}'\)"
-                                id="dt${i}"
-                                style="border: thin dotted #000; width: ${current_text[i].length}ch"
-                                data-value="${current_text[i]}">${ds[0]}</span>}`
-
-             } else {
-                line += `{<span 
-                                onClick="userInputChoice(event, 0, \'dt${i}'\)"
-                                id="dt${i}"
-                                style="border: thin dotted #000; width: ${current_text[i].length}ch"
-                                data-value="${current_text[i]}">${ds[0]}</span>, 
-                           <span 
-                                onClick="userInputChoice(event, 1, \'t${i}'\)"
-                                id="t${i}"
-                                style="border: thin dotted #000; width: ${current_text[i].length}ch"
-                                data-value="${current_text[i]}">${current_text[i]}</span>}`
-             }
-
-
-        } else {
-            line += current_text[i] + ' '
-        }
-    }
-    line = '<p>' + line + ' </p>';
-    return line;
-}
-
-
-function buildTbox(current_text, gap) {
-    line = '';
-    for (var i = 0; i < current_text.length; i++) {
-        if (i == gap) {
-            line += `<input type="text"
-                            onKeyPress="userInput(event, \'t${i}'\)"
-                            id="t${i}"
-                            data-focus="true"
-                            style="font-size: 110%; border: thin dotted #000; width: ${current_text[i].length}ch"
-                            data-value="${current_text[i]}"/> `
-        } else {
-            line += current_text[i] + ' '
-        }
-    }
-    line = '<p>' + line + ' </p>';
-    return line;
-}
-
-function focusGap() {
-    // Focus the input box that is a gap
-    document.querySelectorAll('[data-focus="true"]')[0].focus();
-}
-
-function globalKeyDown(e) {
-    console.log('globalKeyDown() ' + e.key);
-
-    if(e.key == 'Tab') {
-      // Play and focus textbox
-      console.log('TAB');
-      var player = document.getElementById('player');
-      player.play();
-    }
-    if(e.key == ' ') {
-      // Next clip
-      location.reload();
-    }
-}
-
-function clearFeedback() {
-    console.log('clearFeedback()');
-    var myNode = document.getElementById("feedback");
-    while (myNode.firstChild) {
-        myNode.removeChild(myNode.firstChild);
-    }
-}
-
-function drawFeedback() {
-    feedback = document.getElementById('feedback');
-    responses = localStorage.getItem('responses');
-    console.log('drawFeedback() ' + responses);
-    for(var i = 0; i < 10; i++) {
-        span = document.createElement('span');
-        if(responses[i] == '-') {
-            t = document.createTextNode(' ✘ ');
-            span.setAttribute("style", "padding:2px;align:center;color:red; border: 1px solid black");
-            span.appendChild(t);
-        } else if(responses[i] == '+') {
-            t = document.createTextNode(' ✔ ');
-            span.setAttribute("style", "padding:2px;align:center;color:green; border: 1px solid black");
-            span.appendChild(t);
-        } else {
-            t = document.createTextNode(' ? ');
-            span.setAttribute("style", "padding:2px;align:center;color:white; border: 1px solid black");
-            span.appendChild(t);
-        }
-        feedback.appendChild(span);
-        padding = document.createElement('span');
-        padding.setAttribute('style', 'width: 20px');
-        t = document.createTextNode(' ');
-        padding.appendChild(t);
-        feedback.appendChild(padding);
-    }
-}
-
-function chooseTask(enabledTasks) {
-    console.log(enabledTasks);
-    console.log(enabledTasks.length);
-    if(enabledTasks.length == 1) {
-        return enabledTasks[0];
-    }
-    task = getRandomInt(0, enabledTasks.length-1);
-    return enabledTasks[task];
+    /*
+     * On the top-right corner of the website, there are switches that toggle different task types.
+     * This function stores those task types, so that we know which are enabled and which aren't.
+     *
+     */
+    console.log('updateTask() ' + task.id + ' → ' + task.checked);
+    var enabledTasks = JSON.parse(localStorage.getItem('enabledTasks'));
+    if(task.id == 'enableBlanks') {
+        enabledTasks['blanks'] = task.checked;
+    } 
+    if(task.id == 'enableChoice') {
+        enabledTasks['choice'] = task.checked;
+    } 
+    if(task.id == 'enableScrams') {
+        enabledTasks['scramble'] = task.checked;
+    } 
+    if(task.id == 'enableSearch') {
+        enabledTasks['search'] = task.checked;
+    } 
+    localStorage.setItem('enabledTasks', JSON.stringify(enabledTasks));
 }
 
 function onReady() {
-    // Here we choose a global task 
+/** 
+ * First it makes an array of the available tasks
+ * Then it chooses a task and calls the relevant sub-onReady function.
+ */
      
-    var enabledTasks = Array();
-    var et = localStorage.getItem('enableChoice')
-    // FIXME: This is horrible, why doesn't javascript allow if(et) or a tonne of better things?
-    if(et == "true") {
-        console.log('1T? ' + localStorage.getItem('enableChoice'))
-        enabledTasks.push("choice");
-    }
-    var et = localStorage.getItem('enableBlanks')
-    if(et == "true") {
-        console.log('2T? ' + localStorage.getItem('enableBlanks'))
-        enabledTasks.push("blank");
-    }
-    var et = localStorage.getItem('enableScrams')
-    if(et == "true") {
-        console.log('3T? ' + localStorage.getItem('enableScrams'))
-        enabledTasks.push("scramble");
-    }
+    var enabledTasks = JSON.parse(localStorage.getItem('enabledTasks'));
+    var tasks = Array();
+    if(enabledTasks['blanks']) { tasks.push('blanks'); }
+    if(enabledTasks['choice']) { tasks.push('choice'); }
+    if(enabledTasks['scramble']) { tasks.push('scramble'); }
+    if(enabledTasks['search']) { tasks.push('search'); }
 
-
-    taskType = chooseTask(enabledTasks);
-    console.log('TT: ' + taskType);
-    if(taskType == "choice") {
-        onReadyChoice();
-    } else if(taskType == "blank") {
-        onReadyBlank();
-    } else if(taskType == "scramble") {
-        onReadyScramble();
-    } else {
-        console.log("TASK: not implemented, assigning blank");
-        onReadyBlank();
-    }
-}
-
-function onReadyScramble() {
-    console.log('onReadyScramble()');
+    var current_language = localStorage.getItem('currentLanguage')
 
     var questions = {};
     var player = document.getElementById('player');
     var source = document.getElementById('audioSource');
     var xhr = new XMLHttpRequest();
-    var current_language = localStorage.getItem('currentLanguage')
-    xhr.open('GET', '/get_clips?nlevels=10&type=scramble&sorting=length&level=' + current_level + '&language=' + current_language);
+    xhr.open('GET', '/get_clips?nlevels=10&enabled='+tasks.join("|") +'&level=' + current_level + '&language=' + current_language);
     xhr.onload = function() {
-        res = JSON.parse(xhr.responseText);
-        current_question = res["questions"][0];
-        current_audio = current_question["path"];
-        current_text = current_question["tokenized"];
+        var res = JSON.parse(xhr.responseText);
+        var current_question = res["question"];
+        var current_audio = current_question["path"];
+        var current_text = current_question["tokenized"];
+        var distractor = res["distractor"];
+        console.log('distractor:');
+        console.log(distractor);
+        var task_type = res["task_type"];
+        var gap = res["gap"];
 
         source.src = '/static/cv-corpus-6.1-2020-12-11/' + current_question['locale'] + '/clips/' + current_audio;
         source.type = 'audio/mp3';
         player.load();
-        tbox = document.getElementById('textbox');
-        chars = Array();
-        for(var i = 0; i < current_text.length; i++) {
-            for(var j = 0; j < current_text[i].length; j++) {
-              chars.push(current_text[i][j]);
-            }
-            chars.push(" ");
-        }
-        tb = "";
-        for(var i = 0; i < chars.length; i++) {
-            if(chars[i] == " ") {
-              tb += '<span style="color: white"> _ </span>';
-            } else {
-              tb += '<span id="dz'+i+'" style="padding: 2px; text-align:center; border: 2px solid black" onDrop="onScramDrop(event,\'dz'+i+'\')" onDragOver="onScramOver(event)" data-target="'+chars[i]+'"> ? </span>';
-            } 
+        var nextButton = document.getElementById('nextButton');
+        console.log('player height: ' + player.clientHeight);
+        nextButton.setAttribute('style', 'height: ' + player.clientHeight + 'px');
+       
 
-        } 
-        cbox = document.getElementById('clues');
-        var set1 = new Set(chars);
-        var arr1 = Array.from(set1);
-        arr1 = shuffleArray(arr1);
-        cb = "";
-        for(var i = 0; i < arr1.length; i++) {
-            if(arr1[i] == " ") {
-                continue;
-            }
-            cb += '<span class="clue" onDragEnd="onScramEnd(event)" onDragStart="onScramStart(event)" draggable="true" data-value="'+arr1[i] +'">' + arr1[i] + '</span>';
-            cb += '<span style="color: white"> _ </span>';
+        console.log('task_type: ' + task_type);
+        if(task_type == "choice") {
+            onReadyChoice(current_text, gap, distractor);
+        } else if(task_type == "blank") {
+            onReadyBlank(current_text, gap);
+        } else if(task_type == "scramble") {
+            onReadyScramble(current_text);
+        } else if(task_type == "search") {
+            onReadySearch(current_text, distractor);
+        } else {
+            console.log("TASK: not implemented, assigning blank");
+            onReadyBlank(current_text, gap);
         }
-        console.log(set1);
-        cbox.innerHTML = cb;
-        tbox.innerHTML = tb;
     };
+// General code starts here
     xhr.send();
 }
 
-function shuffleArray(array) {
-   let curId = array.length;
-   // There remain elements to shuffle
-   while (0 !== curId) {
-      // Pick a remaining element
-      let randId = Math.floor(Math.random() * curId);
-      curId -= 1;
-      // Swap it with the current element.
-      let tmp = array[curId];
-      array[curId] = array[randId];
-      array[randId] = tmp;
-   }
-   return array;
-}
-
-function onScramOver(e) {
-//    console.log('onScramOver()');
-//    console.log(e);
-//   e.currentTarget.style.backgroundColor = 'red';
-    e.preventDefault();
-}
-
-function onScramStart(e) {
-    console.log('onScramStart()');
-    e.dataTransfer.setData('value', e.currentTarget.dataset.value);
-   e.currentTarget.style.backgroundColor = 'yellow';
-    console.log(e);
-}
-
-function onScramEnd(e) {
-  e.currentTarget.style.backgroundColor = '#bababa';
-//   e.currentTarget.style.backgroundColor = 'white';
-}
-
-function onScramDrop(e, tid) {
-    console.log('onScramDrop()');
-    console.log('tid:' + tid);
-    let val = e.dataTransfer.getData('value');
-    dz = document.getElementById(tid);
-    let trg = dz.getAttribute('data-target');
-    console.log('dz:' + dz);
-    console.log('value:' + val);
-    console.log('target:' + trg);
-
-    if(val == trg) {
-        console.log('CORRECT!');
-        dz.innerHTML = val;
-        dz.setAttribute('class', 'correct');
-        // Check if the word is complete here 
-        tbox = document.getElementById('textbox');
-
-        current_tokens = Array();
-        target_tokens = Array();
-        target_ids = Array();
-
-        current_token = ""; // The token as it currently is
-        target_token = ""; // The correct token
-        target_id = Array(); // A list of span IDs that correspond to tokens, e.g. [[0,1], [2,3,4,5], [6,7]]
-        for(var i = 0; i < tbox.children.length; i++) {
-            // If we hit a word boundary
-            if(tbox.children[i].getAttribute('data-target') == null) { 
-                target_tokens.push(target_token);
-                current_tokens.push(current_token);
-                target_ids.push(target_id);
-                target_token = "";
-                current_token = "";
-                target_id = Array();
-                continue;
-            }       
-            // Build up the tokens
-            target_token += tbox.children[i].getAttribute('data-target');
-            target_id.push(tbox.children[i].getAttribute('id'));
-            current_token += tbox.children[i].textContent;
-            console.log('#' + i + ': ' + tbox.children[i].textContent + ' // ' + tbox.children[i].getAttribute('data-target'));
-        }
-        console.log(target_tokens);
-        console.log(target_ids);
-        console.log(current_tokens);
-        var ncorrect = 0; // Number of tokens found as being correct
-        for(var i = 0; i < target_tokens.length; i++) {
-            // If the token matches
-            if(target_tokens[i] == current_tokens[i]) {
-                ncorrect += 1;
-                for(var j = 1; j < target_ids[i].length; j++) {
-                    toDelete = document.getElementById(target_ids[i][j]);
-                    tbox.removeChild(toDelete);
-                    //toDelete.setAttribute('style', 'display:none');
-                }
-                // Put a fancy green box around it
-                wbox = document.getElementById(target_ids[i][0]);
-                wbox.setAttribute("style", "border-radius: 5px; border: 2px solid green; padding: 5px;");
-                wbox.setAttribute("class", "correct");
-                wbox.innerHTML = target_tokens[i];
-            }
-        }
-        // FIXME: Currently because we delete the nodes, the target tokens are never rebuilt
-        // after they are correct, so we can't calculate ncorrect properly.
-        console.log('XX: ' + ncorrect + ' || ' + target_tokens.length);
-        if(ncorrect == target_tokens.length) {
-            responses = localStorage.getItem('responses');
-            responses += "+"; 
-            localStorage.setItem('responses', responses);
-            clearFeedback();
-            drawFeedback();
-        }
-    } else {
-        console.log('INCORRECT!');
+function findGetParameter(parameterName) {
+    console.log('findGetParameter() ' + parameterName);
+    var result = null,
+        tmp = [];
+    var items = location.search.substr(1).split("&");
+    for (var index = 0; index < items.length; index++) {
+        tmp = items[index].split("=");
+        if (tmp[0] === parameterName) result = decodeURIComponent(tmp[1]);
     }
-}
-
-function onReadyChoice() {
-    console.log('onReadyChoice()');
-
-    var questions = {};
-    var player = document.getElementById('player');
-    var source = document.getElementById('audioSource');
-    var xhr = new XMLHttpRequest();
-    var current_language = localStorage.getItem('currentLanguage')
-    xhr.open('GET', '/get_clips?nlevels=10&type=choice&level=' + current_level + '&language=' + current_language);
-    xhr.onload = function() {
-        res = JSON.parse(xhr.responseText);
-        current_question = res["questions"][0];
-        current_audio = current_question["path"];
-        current_text = current_question["tokenized"];
-        distractors = res["distractors"];
-        source.src = '/static/cv-corpus-6.1-2020-12-11/' + current_question['locale'] + '/clips/' + current_audio;
-        source.type = 'audio/mp3';
-        player.load();
-        tbox = document.getElementById('textbox');
-        gap = electGap(current_text);
-        tbox.innerHTML = buildOptionTbox(current_text, gap, distractors);
-    };
-    xhr.send();
-}
-
-function onReadyBlank() {
-    console.log('onReadyBlanks()');
-
-    var questions = {};
-    var xhr = new XMLHttpRequest();
-    xhr.onload = function() {
-        res = JSON.parse(xhr.responseText);
-        current_question = res["questions"][0];
-        current_audio = current_question["path"];
-        current_text = current_question["tokenized"];
-        var player = document.getElementById('player');
-        var source = document.getElementById('audioSource');
-
-        source.src = '/static/cv-corpus-6.1-2020-12-11/' + current_question['locale'] + '/clips/' + current_audio;
-        source.type = 'audio/mp3';
-        player.load();
-        var tbox = document.getElementById('textbox');
-        var gap = electGap(current_text);
-        tbox.innerHTML = buildTbox(current_text, gap);
-
-    };
-    current_language = localStorage.getItem('currentLanguage')
-    xhr.open('GET', '/get_clips?nlevels=10&type=blank&level=' + current_level + '&language=' + current_language);
-    xhr.send();
-
-}
-
-function checkInput(tid) {
-    console.log('checkInput() ' + tid);
-    input = document.getElementById(tid);
-    console.log("input: ", input)
-    correct = input.getAttribute("data-value");
-    console.log(input);
-    console.log(input.value);
-    guess = input.value;
-
-    if(guess == '') {
-        span.focus();
-        return;
-    }
-
-    console.log('correct: ' + correct);
-    console.log('guess: ' + guess);
-
-    responses = localStorage.getItem('responses');
-
-    console.log(responses);
-    if (guess.toLowerCase() == correct.toLowerCase()) {
-        var answer = document.createElement("span");
-        answer.setAttribute("class", "correct");
-        var answerTextNode = document.createTextNode(correct + " ");
-        answer.appendChild(answerTextNode);
-        input.parentNode.insertBefore(answer, input.nextSibling);
-        input.remove();
-        responses += "+";
-//        if (span.childNodes.length != 1) {
-//            span.childNodes[1].remove();
-//        }
-    } else {
-        var shouldBe = document.createElement("span");
-        shouldBe.setAttribute("style", "color: green");
-        var correctTextNode = document.createTextNode(" [" + correct + "] ");
-        shouldBe.appendChild(correctTextNode);
-        input.parentNode.insertBefore(shouldBe, input.nextSibling);
-
-        console.log('INCORRECT!');
-        var incorrectAnswer = document.createElement("span");
-        incorrectAnswer.setAttribute("style", "color: red");
-        var incorrectTextNode = document.createTextNode(guess);
-        incorrectAnswer.appendChild(incorrectTextNode);
-        input.parentNode.insertBefore(incorrectAnswer, input.nextSibling);
-
-        input.remove();
-
-        responses += "-";
-    }
-    console.log(responses);
-    localStorage.setItem('responses', responses);
-    clearFeedback();
-    drawFeedback();
+    return result;
 }
 
 window.onload = main;

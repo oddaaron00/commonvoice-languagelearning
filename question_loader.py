@@ -8,6 +8,7 @@ import pathlib
 import random
 import pickle
 import gzip
+import re
 import os
 import sqlite3
 
@@ -32,7 +33,9 @@ def tokenize_sentence(question):
 def process_question(question, word_frequency):
     words = tokenize_sentence(question)
     for word in words:
-        word_frequency[word] += 1
+        # Ensure that every word has at least one alphabetic character
+        if re.match('\w+', word):
+            word_frequency[word] += 1
     question["tokenized"] = words
     return question
 
@@ -62,10 +65,10 @@ def load_questions(language_name):
         for row in tqdm.tqdm(rows):
             question = dict(zip(h, row))
             mp3_path = language_name + "/clips/" + question["path"]
-            question["audio_length"] = get_mp3_length(mp3_path)
-            question["chars_sec"] = len(question["sentence"]) / float(
-                question["audio_length"]
-            )
+            #question["audio_length"] = get_mp3_length(mp3_path)
+            #question["chars_sec"] = len(question["sentence"]) / float(
+            #    question["audio_length"]
+            #)
             question = process_question(question, word_frequency)
             questions.append(question)
         sys.stderr.write("Done loading.\n")
@@ -78,23 +81,23 @@ def load_questions(language_name):
     ]
     sorting_schemes["length"].sort(key=lambda x: x[1])
 
-    print("[sorting_schemes]")
-    print("default:", sorting_schemes["default"][0:10])
-    print("length", sorting_schemes["length"][0:10])
+    #print("[sorting_schemes]")
+    #print("default:", sorting_schemes["default"][0:10])
+    #print("length", sorting_schemes["length"][0:10])
 
     # FIXME: This is really slow...
     sys.stderr.write("Generating distractors.\n")
     distractors = get_distractors(word_frequency)
 
-    sys.stderr.write("Assigning distractors.\n")
-    for question in questions:
-        question["distractors"] = {}
-        for token in question["tokenized"]:
-            question["distractors"][token] = distractors[token]
+#    sys.stderr.write("Assigning distractors.\n")
+#    for question in questions:
+#        question["distractors"] = {}
+#        for token in question["tokenized"]:
+#            question["distractors"][token] = distractors[token]
 
     sys.stderr.write("Done.\n")
 
-    return language_name, questions, word_frequency, sorting_schemes
+    return language_name, questions, word_frequency, sorting_schemes, distractors
 
 
 def difficulty_function(question, word_frequency, most_common_word):
@@ -118,23 +121,27 @@ def load_all_languages(languages=None):
     most_common_word = collections.defaultdict(lambda: dict)
     questions = collections.defaultdict(lambda: dict)
     sorting_schemes = collections.defaultdict(lambda: dict)
+    distractors = {}
     if languages is None:
         languages = [
             language.name for language in pathlib.Path(PREFIX).glob("*")
         ]
+    print('[languages][ ]', languages)
     with multiprocessing.Pool(4) as p:
-        for lng, lng_questions, lng_word_frequency, lng_sorting in p.map(
+        for lng, lng_questions, lng_word_frequency, lng_sorting, lng_distractors in p.map(
             load_questions, languages
         ):
             questions[lng] = lng_questions
             sorting_schemes[lng] = lng_sorting
             word_frequency[lng] = lng_word_frequency
             most_common_word[lng] = word_frequency[lng].most_common(1)[0]
-    return languages, dict(questions), sorting_schemes
+            distractors[lng] = lng_distractors
+    return languages, dict(questions), sorting_schemes, distractors
 
 
 def regenerate_cache():
-    languages, questions, sorting_schemes = load_all_languages()
+    languages, questions, sorting_schemes , distractors = load_all_languages()
+    print('[languages][w]', languages)
     with gzip.open("cache/languages.pickle.gz", "wb") as languages_f:
 
         pickle.dump(languages, languages_f)
@@ -144,35 +151,44 @@ def regenerate_cache():
         ) as questions_f:
             sys.stderr.write("Saving the models...\n")
             pickle.dump(
-                (questions[language], sorting_schemes[language]), questions_f
+                (questions[language], sorting_schemes[language], distractors[language]), questions_f
             )
 
     return languages, questions, sorting_schemes
 
 
 def load_all_languages_cached():
+    sys.stderr.write("Trying to load pre-cached question set...\n")
+    languages = {}
+    questions = {}
+    sorting_schemes = {}
+    distractors = {}
     try:
-        sys.stderr.write("Loading pre-cached question set...\n")
         with gzip.open("cache/languages.pickle.gz", "rb") as languages_f:
             languages = pickle.load(languages_f)
-        questions = {}
-        sorting_schemes = {}
-        question_files = list(pathlib.Path("cache").glob("questions__*"))
-        question_files = tqdm.tqdm(question_files)
-        for path in question_files:
-            with gzip.open(path, "rb") as questions_f:
-                # extract whatever's between the __ and the extension
-                language = path.name.split("__")[1].split(".")[0]
-                (questions[language], sorting_schemes[language]) = pickle.load(
-                    questions_f
-                )
+        print('[languages][r]', languages)
     except FileNotFoundError:
         try:
             os.mkdir("cache")
         except FileExistsError:
             pass
-        languages, questions, sorting_schemes = regenerate_cache()
-    return languages, questions, sorting_schemes
+        languages, questions, sorting_schemes, distractors = regenerate_cache()
+
+    question_files = list(pathlib.Path("cache").glob("questions__*"))
+    question_files = tqdm.tqdm(question_files)
+    for path in question_files:
+        try:
+            with gzip.open(path, "rb") as questions_f:
+                # extract whatever's between the __ and the extension
+                language = path.name.split("__")[1].split(".")[0]
+                (questions[language], sorting_schemes[language], distractors[language]) = pickle.load(
+                    questions_f
+                )
+        except FileNotFoundError:
+            print('[not found]', path)
+            pass
+
+    return languages, questions, sorting_schemes, distractors
 
 
 if __name__ == "__main__":

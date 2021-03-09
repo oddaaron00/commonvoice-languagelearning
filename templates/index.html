@@ -2,50 +2,71 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 
 <head>
-<title>OmniLingo</title>
-<meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link rel="stylesheet" href="./static/index.css" />
-<script type="text/javascript" src="./static/ext/head.min.js"></script>
+  <title>OmniLingo</title>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <link rel="stylesheet" href="./static/index.css" />
+  <script type="text/javascript" src="./static/languages.js"></script>
+<meta name="viewport" content="initial-scale=1, maximum-scale=1"/>
+  <script type="text/javascript" src="./static/util.js"></script>
+  <script type="text/javascript" src="./static/tasks/blank.js"></script>
+  <script type="text/javascript" src="./static/tasks/choice.js"></script>
+  <script type="text/javascript" src="./static/tasks/scramble.js"></script>
+  <script type="text/javascript" src="./static/tasks/search.js"></script>
 </head>
 
 <body>
-<div class="content" id="content">
-  <div style="float:right">
-    <input class="cb" onClick="updateTask(this)" type="checkbox" id="enableScrams" name="enableScrams"><label for="enableScrams">Scramble</label>
-    <input class="cb" onClick="updateTask(this)" type="checkbox" id="enableBlanks" name="enableBlanks"><label for="enableBlanks">Blanks</label>
-    <input class="cb" onClick="updateTask(this)" type="checkbox" id="enableChoice" name="enableChoice"><label for="enableChoice">Choices</label>
+  <!-- The header -->
+  <div class="header" id="header">
+    <span style="float:left"><img src="https://omnilingo.xyz/logo.png" height="35px"/></span>
+    <span style="float:right; text-align:right"><select name="languages" id="languages" onChange="changeLanguage(this)"></select></span>
   </div>
-  <div style="float:left">
-  <select name="languages" id="languages" onChange="changeLanguage(this)"></select>
-  <select name="levels" id="levels" onChange="changeLevel(this)"></select>
+  <!-- Content -->
+  <div class="content" id="content">
+    <div>
+      <div style="float:right">
+        <label class="cb"><input onClick="updateTask(this)" type="checkbox" id="enableSearch" name="enableSearch" checked><span>Search</span></label>
+        <label class="cb"><input onClick="updateTask(this)" type="checkbox" id="enableScrams" name="enableScrams" checked><span>Scramble</span></label>
+        <label class="cb"><input onClick="updateTask(this)" type="checkbox" id="enableBlanks" name="enableBlanks" checked><span>Blanks</span></label>
+        <label class="cb"><input onClick="updateTask(this)" type="checkbox" id="enableChoice" name="enableChoice" checked><span>Choice</span></label>
+      </div>
+      <div style="float:left">
+      <select name="levels" id="levels" onChange="changeLevel(this)"></select>
+      </div>
+    </div>
+    <p>&nbsp;</p>
+    <div>
+      <div style="float:left">
+        <audio id="player" controls="controls" onended="focusGap()">
+          <source id="audioSource" />
+        </audio>
+      </div>
+      <div style="float:right">
+       <input id="nextButton" type="button" onClick="window.location.reload()" value="⏭"/>
+      </div>
+    </div>
+    <p>&nbsp;</p>
+    <div style="display: inline-block">
+      <div class="clues" id="clues">
+    </div>
+    <p/>
+    <div class="teksti" id="textbox"> </div> 
+    <br/>
+    <p>&nbsp;</p>
+    <div>
+<!--      <div class="modaldiv" onClick="openModal(this)">
+        <span id="help" class="open-modal" data-open="modal1" onClick="openModal(this)">?</span>
+      </div>-->
+      <div class="feedback" id="feedback"> </div>
+      <div style="float:right; padding: 1px; margin: 1px">
+        <span class="thumb" id="thumbsDown">👎️</span>
+        <span class="thumb" id="thumbsUp">👍️</span> 
+      </div>
+    </div>
   </div>
-  <!--<input type="button" value="Another" onClick="javascript:location.reload (true)"/>-->
-  <br/>
-  <p style="align:left">
-    <strong>Instructions:</strong> Play the recording, then either type
-    or choose what you hear.
-    After typing, press enter to submit. Spacebar reloads the page.
-  </p>
-
-  <audio id="player" controls="controls" onended="focusGap()">
-    <source id="audioSource" />
-  </audio>
-<p/>
-  <div class="clues" id="clues">
   </div>
-<p/>
-<div class="teksti" id="textbox"> </div> 
-<!--  <div id="slidecontainer">
-    <input type="range" min="1" max="100" value="100" class="slider" id="hiderSlider">
-  </div>-->
-  <br/>
-<div style="float:right; padding: 1px; margin: 1px">
-<span class="thumb" id="thumbsDown">👎️</span>
-<span class="thumb" id="thumbsUp">👍️</span> 
-</div>
-  <div class="feedback" id="feedback"> </div>
-</div>
+  <div class="footer">
+<a href="https://github.com/omnilingo/omnilingo"> <img src="/static/assets/github.png" height="20px"/></a> <a href="https://commonvoice.mozilla.org/datasets"><img src="/static/assets/commonvoice.png" height="23px"/></a>
+  </div>
 <script type="text/javascript" src="./static/index.js"></script>
-<span style="display:none" id="invisibleDistractor"/>
 </body>
 </html>
